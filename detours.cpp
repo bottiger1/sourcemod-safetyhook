@@ -53,7 +53,7 @@ CDetour *CDetourManager::CreateDetour(void *callbackFunction, void **trampoline,
 
 CDetour::CDetour(void* callbackFunction, void **trampoline, void *pAddress)
 {
-	m_enabled = false;
+	m_enabled = true;
 
 	// copy detoured bytes as safety hook doesn't save it and we need it for fast enable/disable
 	size_t prologue_bytes = m_hook.original_bytes().size();
