@@ -34,7 +34,7 @@
 #define _INCLUDE_SOURCEMOD_DETOURS_H_
 
 #include <safetyhook.hpp>
-#include "smsdk_ext.h"
+#include <smsdk_ext.h>
 
 #define DETOUR_MEMBER_CALL(name) (this->*name##_Actual)
 #define DETOUR_STATIC_CALL(name) (name##_Actual)
@@ -212,10 +212,12 @@ public:
 
 protected:
 	CDetour(void*callbackfunction, void **trampoline, void *pAddress);
+	~CDetour();
+	void Init();
 private:
 	bool m_enabled;
 	SafetyHookInline m_hook{};
-	std::vector<uint8_t> m_detoured_bytes{};
+	void* m_detoured_bytes;
 };
 
 class CDetourManager
