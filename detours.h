@@ -213,11 +213,8 @@ public:
 protected:
 	CDetour(void*callbackfunction, void **trampoline, void *pAddress);
 	~CDetour();
-	void Init();
 private:
-	bool m_enabled;
 	SafetyHookInline m_hook{};
-	void* m_detoured_bytes;
 };
 
 class CDetourManager

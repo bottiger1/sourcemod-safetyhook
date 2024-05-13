@@ -1,5 +1,9 @@
 #include "detours.h"
 
+#include <iostream>
+#include <iomanip>
+
+
 #include <amtl/os/am-system-errors.h>
 #if defined PLATFORM_POSIX
 #include <sys/mman.h>
@@ -34,6 +38,29 @@ static void SetMemPatchable(void *address, size_t size)
 	ProtectMemory(address, (int)size, PAGE_EXECUTE_READWRITE);
 }
 
+static uint8_t* RoundDownPageSize(uint8_t* addr)
+{
+#if defined PLATFORM_POSIX
+	uintptr_t iAddr = (uintptr_t) addr;
+	uintptr_t mask = sysconf(_SC_PAGESIZE) - 1;
+	return (uint8_t*)(iAddr & ~mask);
+#else
+	return addr; // not needed in windows
+#endif
+}
+
+// utility function
+static void PrintBytes(const char* name, void* ptr, size_t len) {
+	uint8_t* bytes = (uint8_t*)ptr;
+	std::cout << name << " ";
+    for (size_t i = 0; i < len; ++i) {
+        // Print each byte as a two-character wide hex value, padded with zeros if necessary
+        char hex[8];
+        sprintf(hex, "%x ", bytes[i]);
+        std::cout << std::hex << hex;
+    }
+    std::cout << std::endl;
+}
 
 void CDetourManager::Init(ISourcePawnEngine *spengine, IGameConfig *gameconf)
 {
@@ -63,12 +90,11 @@ CDetour *CDetourManager::CreateDetour(void *callbackFunction, void **trampoline,
 {
 	CDetour* detour = new CDetour(callbackFunction, trampoline, pAddress);
 
-	auto result = safetyhook::InlineHook::create(pAddress, callbackFunction);
+	auto result = safetyhook::InlineHook::create(pAddress, callbackFunction, safetyhook::InlineHook::Flags::StartDisabled);
 	if(result)
 	{
 		detour->m_hook = std::move(result.value());
 		*trampoline = detour->m_hook.original<void*>();
-		detour->Init();
 	}
 	else
 	{
@@ -90,49 +116,21 @@ CDetour::CDetour(void* callbackFunction, void **trampoline, void *pAddress)
 
 CDetour::~CDetour()
 {
-	free(m_detoured_bytes);
-}
-
-void CDetour::Init()
-{
-	// copy detoured bytes as safety hook doesn't save it and we need it for fast enable/disable
-	size_t prologue_bytes = m_hook.original_bytes().size();
-	m_detoured_bytes = malloc(prologue_bytes);
-	memcpy(m_detoured_bytes, (void*)m_hook.target(), prologue_bytes);
-
-	// start disabled like original cdetour
-	m_enabled = true;
-	DisableDetour();
 }
 
 bool CDetour::IsEnabled()
 {
-	return m_enabled;
+	return m_hook.enabled();
 }
 
 void CDetour::EnableDetour()
 {
-	if(m_enabled)
-		return;
-	m_enabled = true;
-
-	size_t bytes = m_hook.original_bytes().size();
-	//safetyhook::unprotect(m_hook.target(), bytes); // not working...
-	SetMemPatchable(m_hook.target(), bytes);
-	memcpy(m_hook.target(), m_detoured_bytes, bytes);
+	m_hook.enable();
 }
 
 void CDetour::DisableDetour()
 {
-	if(!m_enabled)
-		return;
-	m_enabled = false;
-
-	size_t bytes = m_hook.original_bytes().size();
-	//Msg("target %p original bytes %p size %i\n", m_hook.target(), m_hook.original_bytes().data(), m_hook.original_bytes().size());
-	//safetyhook::unprotect(m_hook.target(), bytes); // not working...
-	SetMemPatchable(m_hook.target(), bytes);
-	memcpy(m_hook.target(), m_hook.original_bytes().data(), bytes);
+	m_hook.disable();
 }
 
 void CDetour::Destroy()
