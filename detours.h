@@ -212,7 +212,6 @@ public:
 
 protected:
 	CDetour(void*callbackfunction, void **trampoline, void *pAddress);
-	~CDetour();
 private:
 	SafetyHookInline m_hook{};
 };
