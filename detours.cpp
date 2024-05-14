@@ -1,7 +1,16 @@
 #include "detours.h"
+#include <cstdio>
 
 ISourcePawnEngine *CDetourManager::spengine = NULL;
 IGameConfig *CDetourManager::gameconf = NULL;
+
+void printHexBytes(const void *ptr, size_t byteCount) {
+    const unsigned char *bytePtr = (const unsigned char *)ptr;
+    for (size_t i = 0; i < byteCount; ++i) {
+        printf("%02X ", bytePtr[i]);
+    }
+    printf("\n");
+}
 
 void CDetourManager::Init(ISourcePawnEngine *spengine, IGameConfig *gameconf)
 {
@@ -40,9 +49,44 @@ CDetour *CDetourManager::CreateDetour(void *callbackFunction, void **trampoline,
 	else
 	{
 		auto err = result.error();
-		g_pSM->LogError(myself, "safetyhook::InlineHook::Error: %i address %p\n", err.type, pAddress);
-		// TODO: print details
-		//if(err.type == safetyhook::InlineHook::Error::)
+		switch(err.type)
+		{
+			case safetyhook::InlineHook::Error::BAD_ALLOCATION:
+				if(err.allocator_error == safetyhook::Allocator::Error::BAD_VIRTUAL_ALLOC)
+				{
+					g_pSM->LogError(myself, "BAD_VIRTUAL_ALLOC hook %p", pAddress);
+				}
+				else if(err.allocator_error == safetyhook::Allocator::Error::NO_MEMORY_IN_RANGE)
+				{
+					g_pSM->LogError(myself, "NO_MEMORY_IN_RANGE hook %p", pAddress);
+				}
+				else
+				{
+					g_pSM->LogError(myself, "BAD_ALLOCATION hook %p errnum %i", pAddress, err.allocator_error);
+				}
+				break;
+			case safetyhook::InlineHook::Error::FAILED_TO_DECODE_INSTRUCTION:
+				g_pSM->LogError(myself, "FAILED_TO_DECODE_INSTRUCTION hook %p ip %p", pAddress, err.ip);
+				break;
+			case safetyhook::InlineHook::Error::SHORT_JUMP_IN_TRAMPOLINE:
+				g_pSM->LogError(myself, "SHORT_JUMP_IN_TRAMPOLINE hook %p ip %p", pAddress, err.ip);
+				break;
+			case safetyhook::InlineHook::Error::IP_RELATIVE_INSTRUCTION_OUT_OF_RANGE:
+				g_pSM->LogError(myself, "IP_RELATIVE_INSTRUCTION_OUT_OF_RANGE hook %p ip %p", pAddress, err.ip);
+				break;
+			case safetyhook::InlineHook::Error::UNSUPPORTED_INSTRUCTION_IN_TRAMPOLINE:
+				g_pSM->LogError(myself, "UNSUPPORTED_INSTRUCTION_IN_TRAMPOLINE hook %p ip %p", pAddress, err.ip);
+				break;
+			case safetyhook::InlineHook::Error::FAILED_TO_UNPROTECT:
+				g_pSM->LogError(myself, "FAILED_TO_UNPROTECT hook %p ip %p", pAddress, err.ip);
+				break;
+			case safetyhook::InlineHook::Error::NOT_ENOUGH_SPACE:
+				g_pSM->LogError(myself, "NOT_ENOUGH_SPACE hook %p ip %p", pAddress, err.ip);
+				break;
+			default:
+				g_pSM->LogError(myself, "Unknown error %i hook %p ip %p", err.type, pAddress, err.ip);
+				break;
+		}
 		
 		delete detour;
 		return NULL;		
