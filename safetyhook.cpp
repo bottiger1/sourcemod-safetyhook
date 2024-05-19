@@ -1172,7 +1172,11 @@ tl::expected<Allocation, Allocator::Error> Allocator::allocate(size_t size) {
 tl::expected<Allocation, Allocator::Error> Allocator::allocate_near(
     const std::vector<uint8_t*>& desired_addresses, size_t size, size_t max_distance) {
     std::scoped_lock lock{m_mutex};
+#if SAFETYHOOK_ARCH_X86_32
+    return internal_allocate_near({}, size, std::numeric_limits<size_t>::max());
+#else
     return internal_allocate_near(desired_addresses, size, max_distance);
+#endif
 }
 
 void Allocator::free(uint8_t* address, size_t size) {
@@ -1198,11 +1202,9 @@ tl::expected<Allocation, Allocator::Error> Allocator::internal_allocate_near(
             const auto address = node->start;
 
             // Close enough?
-#if SAFETYHOOK_ARCH_X86_64
             if (!in_range(address, desired_addresses, max_distance)) {
                 continue;
             }
-#endif
 
             node->start += size;
 
@@ -1278,13 +1280,6 @@ void Allocator::combine_adjacent_freenodes(Memory& memory) {
 
 tl::expected<uint8_t*, Allocator::Error> Allocator::allocate_nearby_memory(
     const std::vector<uint8_t*>& desired_addresses, size_t size, size_t max_distance) {
-#if SAFETYHOOK_ARCH_X86_32
-    if (auto result = vm_allocate(nullptr, size, VM_ACCESS_RWX)) {
-        return result.value();
-    }
-
-    return tl::unexpected{Error::BAD_VIRTUAL_ALLOC};
-#else
     if (desired_addresses.empty()) {
         if (auto result = vm_allocate(nullptr, size, VM_ACCESS_RWX)) {
             return result.value();
@@ -1363,7 +1358,6 @@ tl::expected<uint8_t*, Allocator::Error> Allocator::allocate_nearby_memory(
     }
 
     return tl::unexpected{Error::NO_MEMORY_IN_RANGE};
-#endif
 }
 
 bool Allocator::in_range(uint8_t* address, const std::vector<uint8_t*>& desired_addresses, size_t max_distance) {
