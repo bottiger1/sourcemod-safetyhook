@@ -1281,7 +1281,7 @@ tl::expected<uint8_t*, Allocator::Error> Allocator::allocate_nearby_memory(
         return result.value();
     }
 
-    return std::unexpected{Error::BAD_VIRTUAL_ALLOC};
+    return tl::unexpected{Error::BAD_VIRTUAL_ALLOC};
 #else
     if (desired_addresses.empty()) {
         if (auto result = vm_allocate(nullptr, size, VM_ACCESS_RWX)) {
