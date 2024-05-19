@@ -1198,9 +1198,11 @@ tl::expected<Allocation, Allocator::Error> Allocator::internal_allocate_near(
             const auto address = node->start;
 
             // Close enough?
+#if SAFETYHOOK_ARCH_X86_64
             if (!in_range(address, desired_addresses, max_distance)) {
                 continue;
             }
+#endif
 
             node->start += size;
 
